@@ -41,6 +41,8 @@ namespace KeraLua
 
             if (openLibs)
                 OpenLibs();
+
+            SetExtraObject(this, true);
         }
 
         /// <summary>
@@ -55,6 +57,8 @@ namespace KeraLua
             Encoding = System.Text.Encoding.ASCII;
 
             _luaState = LuaMethods.lua_newstate(allocator, ud);
+
+            SetExtraObject(this, true);
         }
 
         private this(lua_State luaThread, Lua mainState)
@@ -62,15 +66,29 @@ namespace KeraLua
             _mainState = mainState;
             _luaState = luaThread;
             Encoding = mainState.Encoding;
+
+            SetExtraObject(this, false);
         }
 
-        private this(lua_State luaState)
+        /// <summary>
+        /// Get the Lua object from IntPtr
+        /// Useful for LuaFunction callbacks, if the Lua object was already collected will return null.
+        /// </summary>
+        /// <param name="luaState"></param>
+        /// <returns></returns>
+        public static Lua FromIntPtr(lua_State luaState)
         {
-            Encoding = System.Text.Encoding.ASCII;
+            if (luaState == 0)
+                return null;
 
-            _luaState = luaState;
+            Lua state = GetExtraObject<Lua>(luaState);
+            if (state != null && state._luaState == luaState)
+                return state;
+			
+			// Allocation removed from this function
+			// If you want to allocate, call the constructor :)
+			return null;
         }
-
 
         /// <summary>
         /// Finalizer, will dispose the lua state if wasn't closed
@@ -99,6 +117,24 @@ namespace KeraLua
         {
             Close();
         }
+
+        private void SetExtraObject<T>(T obj, bool weak) where T : class
+        {
+			LuaMethods.lua_pushlightuserdata(_luaState, (void*)_luaState);
+			LuaMethods.lua_pushlightuserdata(_luaState, Internal.UnsafeCastToPtr(obj));
+			LuaMethods.lua_settable(_luaState, LuaRegistry.Index);
+        }
+
+        private static T GetExtraObject<T>(lua_State luaState) where T : class
+        {
+			LuaMethods.lua_pushlightuserdata(luaState, (void*)luaState);
+			LuaMethods.lua_gettable(luaState, LuaRegistry.Index);
+			void* p = LuaMethods.lua_touserdata(luaState, -1);
+			LuaMethods.lua_pop(luaState, 1);
+			if (p == null) return null;
+			return (T)Internal.UnsafeCastToObject(p);
+        }
+
 
         /// <summary>
         /// Converts the acceptable index idx into an equivalent absolute index (that is, one that does not depend on the stack top). 
@@ -1302,6 +1338,22 @@ namespace KeraLua
         public void* ToPointer(int32 index)
         {
             return LuaMethods.lua_topointer(_luaState, index);
+        }
+
+
+        /// <summary>
+        /// Converts the value at the given index to a Lua thread
+        /// or return the self if is the main thread
+        /// </summary>
+        /// <param name="index"></param>
+        /// <returns></returns>
+        public Lua ToThread(int32 index)
+        {
+            lua_State state = LuaMethods.lua_tothread(_luaState, index);
+            if(state == _luaState)
+                return this;
+
+            return FromIntPtr(state);
         }
 
         /// <summary>
