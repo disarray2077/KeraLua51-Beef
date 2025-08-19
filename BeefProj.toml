@@ -7,10 +7,10 @@ StartupObject = "KeraLua.Program"
 ProcessorMacros = ["KERALUA_STATIC"]
 
 [Configs.Debug.Win32]
-LibPaths = ["$(ProjectDir)\\lib\\x86\\lua54.lib"]
+LibPaths = ["$(ProjectDir)\\lib\\x86\\lua51.lib"]
 
 [Configs.Debug.Win64]
-LibPaths = ["$(ProjectDir)\\lib\\x64\\lua54.lib"]
+LibPaths = ["$(ProjectDir)\\lib\\x64\\lua51.lib"]
 
 [Configs.Debug.Linux64]
 LibPaths = ["$(ProjectDir)\\lib\\x64\\liblua54_static.a"]
@@ -19,7 +19,7 @@ LibPaths = ["$(ProjectDir)\\lib\\x64\\liblua54_static.a"]
 LibPaths = ["$(ProjectDir)\\lib\\x86\\liblua54_static.a"]
 
 [Configs.Release.Win32]
-LibPaths = ["$(ProjectDir)\\lib\\x64\\lua54.lib"]
+LibPaths = ["$(ProjectDir)\\lib\\x64\\lua51.lib"]
 
 [Configs.Release.Win64]
-LibPaths = ["$(ProjectDir)\\lib\\x64\\lua54.lib"]
+LibPaths = ["$(ProjectDir)\\lib\\x64\\lua51.lib"]

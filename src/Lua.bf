@@ -25,13 +25,6 @@ namespace KeraLua
         public Encoding Encoding { get; set; }
 
         /// <summary>
-        ///  Returns a pointer to a raw memory area associated with the given Lua state. The application can use this area for any purpose; Lua does not use it for anything.
-        ///  Each new thread has this area initialized with a copy of the area of the main thread. 
-        /// </summary>
-        /// <returns></returns>
-        public int* ExtraSpace => (int*)(void*)(_luaState - sizeof(int));
-
-        /// <summary>
         /// Get the main thread object, if the object is the main thread will be equal this
         /// </summary>
         public Lua MainThread => _mainState ?? this;
@@ -48,8 +41,6 @@ namespace KeraLua
 
             if (openLibs)
                 OpenLibs();
-
-            SetExtraObject(this, true);
         }
 
         /// <summary>
@@ -64,8 +55,6 @@ namespace KeraLua
             Encoding = System.Text.Encoding.ASCII;
 
             _luaState = LuaMethods.lua_newstate(allocator, ud);
-
-            SetExtraObject(this, true);
         }
 
         private this(lua_State luaThread, Lua mainState)
@@ -73,29 +62,15 @@ namespace KeraLua
             _mainState = mainState;
             _luaState = luaThread;
             Encoding = mainState.Encoding;
-
-            SetExtraObject(this, false);
         }
 
-        /// <summary>
-        /// Get the Lua object from IntPtr
-        /// Useful for LuaFunction callbacks, if the Lua object was already collected will return null.
-        /// </summary>
-        /// <param name="luaState"></param>
-        /// <returns></returns>
-        public static Lua FromIntPtr(lua_State luaState)
+        private this(lua_State luaState)
         {
-            if (luaState == 0)
-                return null;
+            Encoding = System.Text.Encoding.ASCII;
 
-            Lua state = GetExtraObject<Lua>(luaState);
-            if (state != null && state._luaState == luaState)
-                return state;
-			
-			// Allocation removed from this function
-			// If you want to allocate, call the constructor :)
-			return null;
+            _luaState = luaState;
         }
+
 
         /// <summary>
         /// Finalizer, will dispose the lua state if wasn't closed
@@ -125,18 +100,6 @@ namespace KeraLua
             Close();
         }
 
-        private void SetExtraObject<T>(T obj, bool weak) where T : class
-        {
-            *ExtraSpace = (.)Internal.UnsafeCastToPtr(obj);
-        }
-
-        private static T GetExtraObject<T>(lua_State luaState) where T : class
-        {
-            int* extraSpace = (int*)(void*)(luaState - sizeof(int));
-            return (T)Internal.UnsafeCastToObject((void*)*extraSpace);
-        }
-
-
         /// <summary>
         /// Converts the acceptable index idx into an equivalent absolute index (that is, one that does not depend on the stack top). 
         /// </summary>
@@ -145,14 +108,6 @@ namespace KeraLua
         public int32 AbsIndex(int32 index)
         {
             return LuaMethods.lua_absindex(_luaState, index);
-        }
-        /// <summary>
-        /// Performs an arithmetic or bitwise operation over the two values (or one, in the case of negations) at the top of the stack, with the value at the top being the second operand, pops these values, and pushes the result of the operation. The function follows the semantics of the corresponding Lua operator (that is, it may call metamethods). 
-        /// </summary>
-        /// <param name="operation"></param>
-        public void Arith(LuaOperation operation)
-        {
-            LuaMethods.lua_arith(_luaState, operation);
         }
 
         /// <summary>
@@ -177,19 +132,7 @@ namespace KeraLua
         /// <param name="results"></param>
         public void Call(int32 arguments, int32 results)
         {
-            LuaMethods.lua_callk(_luaState, arguments, results, 0, 0);
-        }
-
-        /// <summary>
-        /// This function behaves exactly like lua_call, but allows the called function to yield 
-        /// </summary>
-        /// <param name="arguments"></param>
-        /// <param name="results"></param>
-        /// <param name="context"></param>
-        /// <param name="continuation"></param>
-        public void CallK(int32 arguments, int32 results, lua_KContext context, LuaKFunction continuation)
-        {
-            LuaMethods.lua_callk(_luaState, arguments, results, context, continuation);
+            LuaMethods.lua_call(_luaState, arguments, results);
         }
 
         /// <summary>
@@ -246,11 +189,10 @@ namespace KeraLua
         /// </summary>
         /// <param name="writer"></param>
         /// <param name="data"></param>
-        /// <param name="stripDebug"></param>
         /// <returns></returns>
-        public int32 Dump(LuaWriter writer, void* data, bool stripDebug)
+        public int32 Dump(LuaWriter writer, void* data)
         {
-            return LuaMethods.lua_dump(_luaState, writer, data, stripDebug ? 1 : 0);
+            return LuaMethods.lua_dump(_luaState, writer, data);
         }
 
         /// <summary>
@@ -276,18 +218,6 @@ namespace KeraLua
         }
 
         /// <summary>
-        /// Controls the garbage collector. 
-        /// </summary>
-        /// <param name="what"></param>
-        /// <param name="data">passed to lua_gc vargs</param>
-        /// <param name="data2">passed to lua_gc vargs</param>
-        /// <returns></returns>
-        public int32 GarbageCollector(LuaGC what, int32 data, int32 data2)
-        {
-            return LuaMethods.lua_gc(_luaState, what, data, data2);
-        }
-
-        /// <summary>
         /// Returns the memory-allocation function of a given state. If ud is not NULL, Lua stores in *ud the opaque pointer given when the memory-allocator function was set. 
         /// </summary>
         /// <param name="ud"></param>
@@ -299,26 +229,24 @@ namespace KeraLua
 
         /// <summary>
         ///  Pushes onto the stack the value t[k], where t is the value at the given index. As in Lua, this function may trigger a metamethod for the "index" event (see §2.4).
-        /// Returns the type of the pushed value. 
         /// </summary>
         /// <param name="index"></param>
         /// <param name="key"></param>
         /// <returns></returns>
-        public LuaType GetField(int32 index, StringView key)
-        {
-            return (LuaType)LuaMethods.lua_getfield(_luaState, index, key.ToScopeCStr!());
-        }
+		public void GetField(int32 index, StringView key)
+		{
+		    LuaMethods.lua_getfield(_luaState, index, key.ToScopeCStr!());
+		}
 
         /// <summary>
         ///  Pushes onto the stack the value t[k], where t is the value at the given index. As in Lua, this function may trigger a metamethod for the "index" event (see §2.4).
-        /// Returns the type of the pushed value. 
         /// </summary>
         /// <param name="index"></param>
         /// <param name="key"></param>
         /// <returns></returns>
-        public LuaType GetField(LuaRegistry index, StringView key)
+        public void GetField(LuaRegistry index, StringView key)
         {
-            return (LuaType)LuaMethods.lua_getfield(_luaState, index, key.ToScopeCStr!());
+            GetField((int32)index, key);
         }
 
         /// <summary>
@@ -326,21 +254,22 @@ namespace KeraLua
         /// </summary>
         /// <param name="name"></param>
         /// <returns></returns>
-        public LuaType GetGlobal(StringView name)
-        {
-            return (LuaType)LuaMethods.lua_getglobal(_luaState, name.ToScopeCStr!());
-        }
+        public void GetGlobal(StringView name)
+		{
+		    LuaMethods.lua_getglobal(_luaState, name.ToScopeCStr!());
+		}
 
         /// <summary>
         /// Pushes onto the stack the value t[i], where t is the value at the given index
         /// </summary>
         /// <param name="index"></param>
         /// <param name="i"></param>
-        /// <returns> Returns the type of the pushed value</returns>
-        public LuaType GetInteger(int32 index, int64 i)
-        {
-            return (LuaType)LuaMethods.lua_geti(_luaState, index, i);
-        }
+        /// <returns></returns>
+        public void GetInteger(int32 index, int64 i)
+		{
+		    PushInteger(i);
+		    GetTable(index);
+		}
 
 
         /// <summary>
@@ -425,20 +354,20 @@ namespace KeraLua
         /// Pushes onto the stack the value t[k], where t is the value at the given index and k is the value at the top of the stack. 
         /// </summary>
         /// <param name="index"></param>
-        /// <returns>Returns the type of the pushed value</returns>
-        public LuaType GetTable(int32 index)
-        {
-            return (LuaType)LuaMethods.lua_gettable(_luaState, index);
-        }
+        /// <returns></returns>
+        public void GetTable(int32 index)
+		{
+		    LuaMethods.lua_gettable(_luaState, index);
+		}
 
         /// <summary>
         /// Pushes onto the stack the value t[k], where t is the value at the given index and k is the value at the top of the stack. 
         /// </summary>
         /// <param name="index"></param>
-        /// <returns>Returns the type of the pushed value</returns>
-        public LuaType GetTable(LuaRegistry index)
+        /// <returns></returns>
+        public void GetTable(LuaRegistry index)
         {
-            return (LuaType)LuaMethods.lua_gettable(_luaState, index);
+            GetTable((int32)index);
         }
 
 
@@ -449,20 +378,16 @@ namespace KeraLua
         public int32 GetTop() => LuaMethods.lua_gettop(_luaState);
 
         /// <summary>
-        ///  Pushes onto the stack the n-th user value associated with the full userdata at the given index and returns the type of the pushed value.
-        /// If the userdata does not have that value, pushes nil and returns LUA_TNONE.
-        /// </summary>
-        /// <param name="index"></param>
-        /// <param name="nth"></param>
-        /// <returns>Returns the type of the pushed value. </returns>
-        public int32 GetIndexedUserValue(int32 index, int32 nth) => LuaMethods.lua_getiuservalue(_luaState, index, nth);
-
-        /// <summary>
-        /// Compatibility GetIndexedUserValue with constant 1
+        ///  Pushes onto the stack the 1th user value associated with the full userdata at the given index
+        /// If the userdata does not have that value, pushes nil.
         /// </summary>
         /// <param name="index"></param>
         /// <returns></returns>
-        public int32 GetUserValue(int32 index) => GetIndexedUserValue(index, 1);
+        public void GetUserValue(int32 index)
+		{
+			LuaMethods.lua_getfenv(_luaState, index);
+		}
+
         /// <summary>
         ///  Gets information about the n-th upvalue of the closure at index funcindex. It pushes the upvalue's value onto the stack and returns its name. Returns NULL (and pushes nothing) when the index n is greater than the number of upvalues.
         ///  For C functions, this function uses the empty string "" as a name for all upvalues. (For Lua functions, upvalues are the external local variables that the function uses, and that are consequently included in its closure.)
@@ -497,7 +422,7 @@ namespace KeraLua
         /// Moves the top element into the given valid index, shifting up the elements above this index to open space. This function cannot be called with a pseudo-index, because a pseudo-index is not an actual stack position. 
         /// </summary>
         /// <param name="index"></param>
-        public void Insert(int32 index) => LuaMethods.lua_rotate(_luaState, index, 1);
+        public void Insert(int32 index) => LuaMethods.lua_insert(_luaState, index);
 
         /// <summary>
         /// Returns  if the value at the given index is a boolean
@@ -610,7 +535,13 @@ namespace KeraLua
         /// Push the length of the value at the given index on the stack. It is equivalent to the '#' operator in Lua (see §3.4.7) and may trigger a metamethod for the "length" event (see §2.4). The result is pushed on the stack. 
         /// </summary>
         /// <param name="index"></param>
-        public void PushLength(int32 index) => LuaMethods.lua_len(_luaState, index);
+        public void PushLength(int32 index)
+		{
+			if (LuaMethods.luaL_callmeta(_luaState, index, "__len") == 0)
+			{
+			    LuaMethods.lua_pushnumber(_luaState, (double)LuaMethods.lua_objlen(_luaState, index));
+			}
+		}
 
         /// <summary>
         /// Loads a Lua chunk without running it. If there are no errors, lua_load pushes the compiled chunk as a Lua function on top of the stack. Otherwise, it pushes an error message. 
@@ -619,19 +550,16 @@ namespace KeraLua
         /// <param name="reader"></param>
         /// <param name="data"></param>
         /// <param name="chunkName"></param>
-        /// <param name="mode"></param>
         /// <returns></returns>
         public LuaStatus Load
             (LuaReader reader,
              void* data,
-             StringView chunkName,
-             StringView mode)
+             StringView chunkName)
         {
             return (LuaStatus)LuaMethods.lua_load(_luaState,
                                                      reader,
                                                      data,
-                                                     chunkName.ToScopeCStr!(),
-                                                     mode.ToScopeCStr!());
+                                                     chunkName.ToScopeCStr!());
         }
 
         /// <summary>
@@ -648,27 +576,17 @@ namespace KeraLua
             lua_State thread = LuaMethods.lua_newthread(_luaState);
             return new Lua(thread, this);
         }
-
-        /// <summary>
-        ///  This function creates and pushes on the stack a new full userdata, with nuvalue associated Lua values, called user values, plus an associated block of raw memory with size bytes. (The user values can be set and read with the functions lua_setiuservalue and lua_getiuservalue.)
-        ///  The function returns the address of the block of memory.
-        /// </summary>
-        /// <param name="size"></param>
-        /// <param name="uv"></param>
-        /// <returns></returns>
-        public void* NewIndexedUserData(int32 size, int32 uv)
-        {
-            return LuaMethods.lua_newuserdatauv(_luaState, (uint) size, uv);
-        }
-
-        /// <summary>
-        /// Compatibility NewIndexedUserData with constant parameter
-        /// </summary>
-        /// <param name="size"></param>
-        /// <returns></returns>
+		
+		/// <summary>
+		///  This function creates and pushes on the stack a new full userdata, called user values, plus an associated block of raw memory with size bytes.
+		///  The function returns the address of the block of memory.
+		/// </summary>
+		/// <param name="size"></param>
+		/// <param name="uv"></param>
+		/// <returns></returns>
         public void* NewUserData(int32 size)
         {
-            return NewIndexedUserData(size, 1);
+            return LuaMethods.lua_newuserdata(_luaState, (uint) size);
         }
 
         /// <summary>
@@ -686,29 +604,7 @@ namespace KeraLua
         /// <param name="errorFunctionIndex"></param>
         public LuaStatus PCall(int32 arguments, int32 results, int32 errorFunctionIndex)
         {
-            return (LuaStatus)LuaMethods.lua_pcallk(_luaState, arguments, results, errorFunctionIndex, 0, 0);
-        }
-
-        /// <summary>
-        /// This function behaves exactly like lua_pcall, but allows the called function to yield
-        /// </summary>
-        /// <param name="arguments"></param>
-        /// <param name="results"></param>
-        /// <param name="errorFunctionIndex"></param>
-        /// <param name="context"></param>
-        /// <param name="k"></param>
-        public LuaStatus PCallK(int32 arguments,
-            int32 results,
-            int32 errorFunctionIndex,
-            int32 context,
-            LuaKFunction k)
-        {
-            return (LuaStatus)LuaMethods.lua_pcallk(_luaState,
-                arguments,
-                results,
-                errorFunctionIndex,
-                (lua_KContext)context,
-                k);
+            return (LuaStatus)LuaMethods.lua_pcall(_luaState, arguments, results, errorFunctionIndex);
         }
 
         /// <summary>
@@ -753,7 +649,7 @@ namespace KeraLua
         /// </summary>
         public void PushGlobalTable()
         {
-            LuaMethods.lua_rawgeti(_luaState, LuaRegistry.Index, (.)LuaRegistryIndex.Globals);
+            LuaMethods.lua_pushvalue(_luaState, LuaGlobals.Index);
         }
         /// <summary>
         /// Pushes an integer with value n onto the stack. 
@@ -811,6 +707,7 @@ namespace KeraLua
 		/// <param name="buffer"></param>
 		public void PushBuffer<CSize>(uint8[CSize] buffer) where CSize : const int
         {
+#unwarn
             LuaMethods.lua_pushlstring(_luaState, (.)&buffer[0], (.)CSize);
         }
 
@@ -865,11 +762,10 @@ namespace KeraLua
         public void PushNumber(double number) => LuaMethods.lua_pushnumber(_luaState, number);
 
         /// <summary>
-        /// Pushes the thread represented by L onto the stack. Returns true if this thread is the main thread of its state. 
+        /// Pushes the current thread onto the stack. Returns true if this thread is the main thread of its state. 
         /// </summary>
-        /// <param name="thread"></param>
         /// <returns></returns>
-        public bool PushThread(Lua thread)
+        public bool PushThread()
         {
             return LuaMethods.lua_pushthread(_luaState) == 1;
         }
@@ -899,31 +795,20 @@ namespace KeraLua
         /// Similar to GetTable, but does a raw access (i.e., without metamethods). 
         /// </summary>
         /// <param name="index"></param>
-        /// <returns>Returns the type of the pushed value</returns>
-        public LuaType RawGet(int32 index)
+        /// <returns></returns>
+        public void RawGet(int32 index)
         {
-            return (LuaType)LuaMethods.lua_rawget(_luaState, index);
+           	LuaMethods.lua_rawget(_luaState, index);
         }
 
         /// <summary>
         /// Similar to GetTable, but does a raw access (i.e., without metamethods). 
         /// </summary>
         /// <param name="index"></param>
-        /// <returns>Returns the type of the pushed value</returns>
-        public LuaType RawGet(LuaRegistry index)
+        /// <returns></returns>
+        public void RawGet(LuaRegistry index)
         {
-            return (LuaType)LuaMethods.lua_rawget(_luaState, index);
-        }
-
-        /// <summary>
-        /// Pushes onto the stack the value t[n], where t is the table at the given index. The access is raw, that is, it does not invoke the __index metamethod. 
-        /// </summary>
-        /// <param name="index"></param>
-        /// <param name="n"></param>
-        /// <returns>Returns the type of the pushed value</returns>
-        public LuaType RawGetInteger(int32 index, int64 n)
-        {
-            return (LuaType)LuaMethods.lua_rawgeti(_luaState, index, n);
+            LuaMethods.lua_rawget(_luaState, index);
         }
 
         /// <summary>
@@ -932,9 +817,20 @@ namespace KeraLua
         /// <param name="index"></param>
         /// <param name="n"></param>
         /// <returns></returns>
-        public LuaType RawGetInteger(LuaRegistry index, int64 n)
+        public void RawGetInteger(int32 index, int32 n)
         {
-            return (LuaType)LuaMethods.lua_rawgeti(_luaState, index, n);
+            LuaMethods.lua_rawgeti(_luaState, index, n);
+        }
+
+        /// <summary>
+        /// Pushes onto the stack the value t[n], where t is the table at the given index. The access is raw, that is, it does not invoke the __index metamethod. 
+        /// </summary>
+        /// <param name="index"></param>
+        /// <param name="n"></param>
+        /// <returns></returns>
+        public void RawGetInteger(LuaRegistry index, int32 n)
+        {
+            LuaMethods.lua_rawgeti(_luaState, index, n);
         }
 
 
@@ -943,10 +839,11 @@ namespace KeraLua
         /// </summary>
         /// <param name="index"></param>
         /// <param name="obj"></param>
-        /// <returns>Returns the type of the pushed value. </returns>
-        public LuaType RawGetByHashCode<T>(int32 index, T obj) where T : IHashable
+        /// <returns></returns>
+        public void RawGetByHashCode<T>(int32 index, T obj) where T : IHashable
         {
-            return (LuaType)LuaMethods.lua_rawgetp(_luaState, index, (void*)obj.GetHashCode());
+            LuaMethods.lua_pushlightuserdata(_luaState, (void*)obj.GetHashCode());
+			LuaMethods.lua_rawget(_luaState, index);
         }
 
         /// <summary>
@@ -956,7 +853,7 @@ namespace KeraLua
         /// <returns></returns>
         public int32 RawLen(int32 index)
         {
-            return (int32)LuaMethods.lua_rawlen(_luaState, index);
+            return (int32)LuaMethods.lua_objlen(_luaState, index);
         }
 
         /// <summary>
@@ -983,7 +880,7 @@ namespace KeraLua
         /// </summary>
         /// <param name="index">index of table</param>
         /// <param name="i">value</param>
-        public void RawSetInteger(int32 index, int64 i)
+        public void RawSetInteger(int32 index, int32 i)
         {
             LuaMethods.lua_rawseti(_luaState, index, i);
         }
@@ -994,7 +891,7 @@ namespace KeraLua
         /// </summary>
         /// <param name="index"></param>
         /// <param name="i"></param>
-        public void RawSetInteger(LuaRegistry index, int64 i)
+        public void RawSetInteger(LuaRegistry index, int32 i)
         {
             LuaMethods.lua_rawseti(_luaState, index, i);
         }
@@ -1007,7 +904,9 @@ namespace KeraLua
         /// <param name="obj"></param>
         public void RawSetByHashCode<T>(int32 index, T obj) where T : IHashable
         {
-            LuaMethods.lua_rawsetp(_luaState, index, (void*)obj.GetHashCode());
+			LuaMethods.lua_pushlightuserdata(_luaState, (void*)obj.GetHashCode());
+			LuaMethods.lua_insert(_luaState, -2);
+			LuaMethods.lua_rawset(_luaState, index);
         }
 
         /// <summary>
@@ -1028,8 +927,7 @@ namespace KeraLua
         /// <param name="index"></param>
         public void Remove(int32 index)
         {
-            Rotate(index, -1);
-            Pop(1);
+			LuaMethods.lua_remove(_luaState, index);
         }
 
         /// <summary>
@@ -1050,32 +948,10 @@ namespace KeraLua
         /// </summary>
         /// <param name="from"></param>
         /// <param name="arguments"></param>
-        /// <param name="results"></param>
-        /// <returns></returns>
-        public LuaStatus Resume(Lua from, int32 arguments, out int32 results)
-        {
-            return (LuaStatus)LuaMethods.lua_resume(_luaState, from?._luaState ?? 0, arguments, out results);
-        }
-
-        /// <summary>
-        /// Compatibility Resume without results.
-        /// </summary>
-        /// <param name="from"></param>
-        /// <param name="arguments"></param>
         /// <returns></returns>
         public LuaStatus Resume(Lua from, int32 arguments)
         {
-            int32 ignore;
-            return (LuaStatus)LuaMethods.lua_resume(_luaState, from?._luaState ?? 0, arguments, out ignore);
-        }
-
-        /// <summary>
-        /// Resets a thread, cleaning its call stack and closing all pending to-be-closed variables. Returns a status code: LUA_OK for no errors in closing methods, or an error status otherwise. In case of error, leaves the error object on the top of the stack, 
-        /// </summary>
-        /// <returns></returns>
-        public int32 ResetThread()
-        {
-            return LuaMethods.lua_resetthread(_luaState);
+            return (LuaStatus)LuaMethods.lua_resume(_luaState, arguments);
         }
 
         /// <summary>
@@ -1135,9 +1011,9 @@ namespace KeraLua
         /// </summary>
         /// <param name="index"></param>
         /// <param name="n"></param>
-        public void SetInteger(int32 index, int64 n)
+        public void SetInteger(int32 index, int32 n)
         {
-            LuaMethods.lua_seti(_luaState, index, n);
+            LuaMethods.lua_rawseti(_luaState, index, n);
         }
 
         /// <summary>
@@ -1203,30 +1079,14 @@ namespace KeraLua
         }
 
         /// <summary>
-        /// Sets the warning function to be used by Lua to emit warnings (see lua_WarnFunction). The ud parameter sets the value ud passed to the warning function.
-        /// </summary>
-        /// <param name="function"></param>
-        /// <param name="userData"></param>
-        public void SetWarningFunction(LuaWarnFunction func, void* userData)
-        {
-            LuaMethods.lua_setwarnf(_luaState, func, userData);
-        }
-
-        /// <summary>
-        ///  Pops a value from the stack and sets it as the new n-th user value associated to the full userdata at the given index. Returns 0 if the userdata does not have that value. 
+        ///  Pops a value from the stack and sets it as the new 1th user value associated to the full userdata at the given index. Returns 0 if the userdata does not have that value. 
         /// </summary>
         /// <param name="index"></param>
         /// <param name="nth"></param>
-        public void SetIndexedUserValue(int32 index, int32 nth)
+        public void SetUserValue(int32 index)
         {
-            LuaMethods.lua_setiuservalue(_luaState, index, nth);
+			LuaMethods.lua_setfenv(_luaState, index);
         }
-
-        /// <summary>
-        /// Compatibility SetIndexedUserValue with constant 1
-        /// </summary>
-        /// <param name="index"></param>
-        public void SetUserValue(int32 index) => SetIndexedUserValue(index, 1);
 
         /// <summary>
         ///  The status can be 0 (LUA_OK) for a normal thread, an error code if the thread finished the execution of a lua_resume with an error, or LUA_YIELD if the thread is suspended. 
@@ -1262,17 +1122,6 @@ namespace KeraLua
         public LuaFunction ToCFunction(int32 index)
         {
             return LuaMethods.lua_tocfunction(_luaState, index);
-        }
-
-        /// <summary>
-        ///  Marks the given index in the stack as a to-be-closed "variable" (see §3.3.8). Like a to-be-closed variable in Lua, the value at that index in the stack will be closed when it goes out of scope. Here, in the context of a C function, to go out of scope means that the running function returns to Lua, there is an error, or the index is removed from the stack through lua_settop or lua_pop. An index marked as to-be-closed should not be removed from the stack by any other function in the API except lua_settop or lua_pop.
-        /// This function should not be called for an index that is equal to or below an already marked to-be-closed index.
-        /// This function can raise an out-of-memory error. In that case, the value in the given index is immediately closed, as if it was already marked. 
-        /// </summary>
-        /// <param name="index"></param>
-        public void ToClose(int32 index)
-        {
-            LuaMethods.lua_toclose(_luaState, index);
         }
 
         /// <summary>
@@ -1455,22 +1304,6 @@ namespace KeraLua
             return LuaMethods.lua_topointer(_luaState, index);
         }
 
-
-        /// <summary>
-        /// Converts the value at the given index to a Lua thread
-        /// or return the self if is the main thread
-        /// </summary>
-        /// <param name="index"></param>
-        /// <returns></returns>
-        public Lua ToThread(int32 index)
-        {
-            lua_State state = LuaMethods.lua_tothread(_luaState, index);
-            if(state == _luaState)
-                return this;
-
-            return FromIntPtr(state);
-        }
-
         /// <summary>
         /// Return an object (refence) at the index
         /// </summary>
@@ -1539,7 +1372,7 @@ namespace KeraLua
 		[Inline]
         public static int32 UpValueIndex(int32 i)
         {
-            return (int32)LuaRegistry.Index - i;
+            return (int32)LuaGlobals.Index - i;
         }
 
         /// <summary>
@@ -1560,7 +1393,7 @@ namespace KeraLua
         /// <returns></returns>
         public double Version()
         {
-            return LuaMethods.lua_version(_luaState);
+            return 501;
         }
 
         /// <summary>
@@ -1582,19 +1415,7 @@ namespace KeraLua
         /// <returns></returns>
         public int32 Yield(int32 results)
         {
-            return LuaMethods.lua_yieldk(_luaState, results, 0, 0);
-        }
-
-        /// <summary>
-        ///  Yields a coroutine (thread). When a C function calls lua_yieldk, the running coroutine suspends its execution, and the call to lua_resume that started this coroutine returns
-        /// </summary>
-        /// <param name="results">Number of values from the stack that will be passed as results to lua_resume.</param>
-        /// <param name="context"></param>
-        /// <param name="continuation"></param>
-        /// <returns></returns>
-        public int32 YieldK(int32 results, lua_KContext context, LuaKFunction continuation)
-        {
-            return LuaMethods.lua_yieldk(_luaState, results, context, continuation);
+            return LuaMethods.lua_yield(_luaState, results);
         }
 
         /* Auxialiary Library Functions */
@@ -1807,27 +1628,6 @@ namespace KeraLua
         }
 
         /// <summary>
-        /// This function produces the return values for process-related functions in the standard library
-        /// </summary>
-        /// <param name="stat"></param>
-        /// <returns></returns>
-        public int32 ExecResult(int32 stat)
-        {
-            return LuaMethods.luaL_execresult(_luaState, stat);
-        }
-
-        /// <summary>
-        /// This function produces the return values for file-related functions in the standard library
-        /// </summary>
-        /// <param name="stat"></param>
-        /// <param name="fileName"></param>
-        /// <returns></returns>
-        public int32 FileResult(int32 stat, StringView fileName)
-        {
-            return LuaMethods.luaL_fileresult(_luaState, stat, fileName.ToScopeCStr!());
-        }
-
-        /// <summary>
         /// Pushes onto the stack the field e from the metatable of the object at index obj and returns the type of the pushed value
         /// </summary>
         /// <param name="obj"></param>
@@ -1842,21 +1642,10 @@ namespace KeraLua
         /// Pushes onto the stack the metatable associated with name tname in the registry (see luaL_newmetatable) (nil if there is no metatable associated with that name)
         /// </summary>
         /// <param name="tableName"></param>
-        /// <returns>Returns the type of the pushed value. </returns>
-        public LuaType GetMetaTable(StringView tableName)
-        {
-            return GetField(LuaRegistry.Index, tableName);
-        }
-
-        /// <summary>
-        /// Ensures that the value t[fname], where t is the value at index idx, is a table, and pushes that table onto the stack. Returns true if it finds a previous table there and false if it creates a new table
-        /// </summary>
-        /// <param name="index"></param>
-        /// <param name="name"></param>
         /// <returns></returns>
-        public bool GetSubTable(int32 index, StringView name)
+        public void GetMetaTable(StringView tableName)
         {
-            return LuaMethods.luaL_getsubtable(_luaState, index, name.ToScopeCStr!()) != 0;
+            GetField(LuaRegistry.Index, tableName);
         }
 
         /// <summary>
@@ -1873,9 +1662,9 @@ namespace KeraLua
         /// <param name="name"></param>
         /// <param name="mode"></param>
         /// <returns></returns>
-        public LuaStatus LoadBuffer(uint8[] buffer, StringView? name, StringView? mode)
+        public LuaStatus LoadBuffer(uint8[] buffer, StringView? name)
         {
-            return (LuaStatus)LuaMethods.luaL_loadbufferx(_luaState, (.)buffer.Ptr, (uint)buffer.Count, name?.ToScopeCStr!() ?? null, mode?.ToScopeCStr!() ?? null);
+            return (LuaStatus)LuaMethods.luaL_loadbuffer(_luaState, (.)buffer.Ptr, (uint)buffer.Count, name?.ToScopeCStr!() ?? null);
         }
 
         /// <summary>
@@ -1883,31 +1672,10 @@ namespace KeraLua
         /// </summary>
         /// <param name="buffer"></param>
         /// <param name="name"></param>
-        /// <param name="mode"></param>
-        /// <returns></returns>
-        public LuaStatus LoadBuffer(uint8[] buffer, String name, String mode)
-        {
-            return (LuaStatus)LuaMethods.luaL_loadbufferx(_luaState, (.)buffer.Ptr, (uint)buffer.Count, name?.CStr() ?? null, mode?.CStr() ?? null);
-        }
-
-        /// <summary>
-        /// </summary>
-        /// <param name="buffer"></param>
-        /// <param name="name"></param>
-        /// <returns></returns>
-        public LuaStatus LoadBuffer(uint8[] buffer, StringView? name)
-        {
-            return LoadBuffer(buffer, name, null);
-        }
-
-        /// <summary>
-        /// </summary>
-        /// <param name="buffer"></param>
-        /// <param name="name"></param>
         /// <returns></returns>
         public LuaStatus LoadBuffer(uint8[] buffer, String name)
         {
-            return LoadBuffer(buffer, name, null);
+            return (LuaStatus)LuaMethods.luaL_loadbuffer(_luaState, (.)buffer.Ptr, (uint)buffer.Count, name?.CStr() ?? null);
         }
 
         /// <summary>
@@ -1917,7 +1685,7 @@ namespace KeraLua
         /// <returns></returns>
         public LuaStatus LoadBuffer(uint8[] buffer)
         {
-            return LoadBuffer(buffer, (String)null, (String)null);
+            return LoadBuffer(buffer, (String)null);
 
         }
 
@@ -1949,21 +1717,10 @@ namespace KeraLua
         /// Loads a file as a Lua chunk. This function uses lua_load to load the chunk in the file named filename
         /// </summary>
         /// <param name="file"></param>
-        /// <param name="mode"></param>
         /// <returns>The status of operation</returns>
-        public LuaStatus LoadFile(StringView file, StringView? mode)
-        {
-            return (LuaStatus)LuaMethods.luaL_loadfilex(_luaState, file.ToScopeCStr!(), mode?.ToScopeCStr!() ?? null);
-        }
-
-        /// <summary>
-        /// Loads a file as a Lua chunk.
-        /// </summary>
-        /// <param name="file"></param>
-        /// <returns>Return the status</returns>
         public LuaStatus LoadFile(StringView file)
         {
-            return LoadFile(file, null);
+            return (LuaStatus)LuaMethods.luaL_loadfile(_luaState, file.ToScopeCStr!());
         }
 
         /// <summary>
@@ -2013,47 +1770,7 @@ namespace KeraLua
         {
             return LuaMethods.luaL_optinteger(_luaState, argument, d);
         }
-		// TODO
-		/*
-        /// <summary>
-        /// If the function argument arg is a string, returns this string. If this argument is absent or is nil, returns d        /// </summary>
-        /// <param name="index"></param>
-        /// <param name="def"></param>
-        /// <returns></returns>
-        public byte[] OptBuffer(int32 index, byte [] def)
-        {
-           if (IsNoneOrNil(index))
-                return def;
 
-           return CheckBuffer(index);
-        }
-
-        /// <summary>
-        /// If the function argument arg is a string, returns this string. If this argument is absent or is nil, returns d
-        /// </summary>
-        /// <param name="index"></param>
-        /// <param name="def"></param>
-        /// <returns></returns>
-        public string OptString(int32 index, string def)
-        {
-           if (IsNoneOrNil(index))
-                return def;
-
-           return CheckString(index);
-        }
-
-
-        /// <summary>
-        /// If the function argument arg is a number, returns this number. If this argument is absent or is nil, returns d
-        /// </summary>
-        /// <param name="index"></param>
-        /// <param name="def"></param>
-        /// <returns></returns>
-        public double OptNumber(int32 index, double def)
-        {
-            return NativeMethods.luaL_optnumber(_luaState, index, def);
-        }
-		*/
         /// <summary>
         /// Creates and returns a reference, in the table at index t, for the object at the top of the stack (and pops the object). 
         /// </summary>
@@ -2062,17 +1779,6 @@ namespace KeraLua
         public int32 Ref(LuaRegistry tableIndex)
         {
             return LuaMethods.luaL_ref(_luaState, tableIndex);
-        }
-
-        /// <summary>
-        /// If modname is not already present in package.loaded, calls function openf with string modname as an argument and sets the call result in package.loaded[modname], as if that function has been called through require
-        /// </summary>
-        /// <param name="moduleName"></param>
-        /// <param name="openFunction"></param>
-        /// <param name="global"></param>
-        public void RequireF(StringView moduleName, LuaFunction openFunction, bool global)
-        {
-            LuaMethods.luaL_requiref(_luaState, moduleName.ToScopeCStr!(), openFunction, global ? 1: 0);
         }
 
         /// <summary>
@@ -2089,71 +1795,11 @@ namespace KeraLua
         /// </summary>
         /// <param name="name"></param>
         public void SetMetaTable(StringView name)
-        {
-            LuaMethods.luaL_setmetatable(_luaState, name.ToScopeCStr!());
-        }
-		// TODO
-		/*
-        /// <summary>
-        /// Test if the value at index is a reference data
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="argument"></param>
-        /// <param name="typeName"></param>
-        /// <param name="freeGCHandle">True to release the GCHandle of object</param>
-        /// <returns></returns>
-        public T TestObject<T>(int32 argument, string typeName, bool freeGCHandle = true)
-        {
-            if (IsNil(argument) || !IsLightUserData(argument))
-                return default(T);
+		{
+		    GetMetaTable(name);
+		    SetMetaTable(-2);
+		}
 
-            IntPtr data = TestUserData(argument, typeName); 
-            if (data == 0)
-                return default(T);
-
-            var handle = GCHandle.FromIntPtr(data);
-            if(!handle.IsAllocated)
-                return default(T);
-
-            var reference = (T)handle.Target;
-            if(freeGCHandle)
-                handle.Free();
-
-            return reference;
-        }
-
-        /// <summary>
-        /// This function works like luaL_checkudata, except that, when the test fails, it returns NULL instead of raising an error.
-        /// </summary>
-        /// <param name="argument"></param>
-        /// <param name="typeName"></param>
-        /// <returns></returns>
-        public IntPtr TestUserData(int32 argument, string typeName)
-        {
-            return NativeMethods.luaL_testudata(_luaState, argument, typeName);
-        }
-
-        /// <summary>
-        /// Creates and pushes a traceback of the stack L1
-        /// </summary>
-        /// <param name="state"></param>
-        /// <param name="level"> Tells at which level to start the traceback</param>
-        public void Traceback(Lua state, int32 level = 0)
-        {
-            Traceback(state, null, level);
-        }
-
-        /// <summary>
-        /// Creates and pushes a traceback of the stack L1
-        /// </summary>
-        /// <param name="state"></param>
-        /// <param name="message">appended at the beginning of the traceback</param>
-        /// <param name="level"> Tells at which level to start the traceback</param>
-        public void Traceback(Lua state, string message, int32 level)
-        {
-            NativeMethods.luaL_traceback(_luaState, state._luaState, message, level);
-        }
-		*/
         /// <summary>
         /// Returns the name of the type of the value at the given index. 
         /// </summary>
@@ -2173,16 +1819,6 @@ namespace KeraLua
         public void Unref(LuaRegistry tableIndex, int32 reference)
         {
             LuaMethods.luaL_unref(_luaState, tableIndex, reference);
-        }
-
-        /// <summary>
-        /// Emits a warning with the given message. A message in a call with tocont true should be continued in another call to this function. 
-        /// </summary>
-        /// <param name="message"></param>
-        /// <param name="toContinue"></param>
-        public void Warning(String message, bool toContinue)
-        {
-            LuaMethods.lua_warning(_luaState, message.CStr(), toContinue ? 1 : 0);
         }
 
 

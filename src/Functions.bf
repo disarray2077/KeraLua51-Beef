@@ -16,15 +16,6 @@ namespace KeraLua
 	public function void LuaHookFunction(lua_State luaState, lua_Debug ar);
 
 	/// <summary>
-	/// Type for continuation functions 
-	/// </summary>
-	/// <param name="L"></param>
-	/// <param name="status"></param>
-	/// <param name="ctx"></param>
-	/// <returns></returns>
-	public function int32 LuaKFunction(lua_State L, int32 status, lua_KContext ctx);
-
-	/// <summary>
 	/// The reader function used by lua_load. Every time it needs another piece of the chunk, lua_load calls the reader, passing along its data parameter. The reader must return a pointer to a block of memory with a new piece of the chunk and set size to the block size
 	/// </summary>
 	/// <param name="L"></param>
@@ -52,12 +43,4 @@ namespace KeraLua
 	/// <param name="nsize"></param>
 	/// <returns></returns>
 	public function void* LuaAlloc(void* ud, void* ptr, uint osize, uint nsize);
-
-	/// <summary>
-	/// Type for warning functions
-	/// </summary>
-	/// <param name="ud"></param>
-	/// <param name="msg"></param>
-	/// <param name="tocont"></param>
-	public function void LuaWarnFunction(void* ud, char8* msg, int32 tocont);
 }

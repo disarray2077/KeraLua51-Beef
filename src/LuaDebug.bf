@@ -42,13 +42,16 @@ namespace KeraLua
         /// <summary>
         /// The length of the string source
         /// </summary>
-        [Inline] public int32 SourceLength => (int32)sourceLen;
-        int sourceLen;
+        [Inline] public int32 SourceLength => (int32)String.StrLen(source);
 
         /// <summary>
         ///  the current line where the given function is executing. When no line information is available, currentline is set to -1
         /// </summary>
         public int32 CurrentLine;
+        /// <summary>
+        /// number of upvalues
+        /// </summary>
+        public int32 NumberUpValues;
         /// <summary>
         /// 
         /// </summary>
@@ -57,32 +60,6 @@ namespace KeraLua
         ///  the line number where the definition of the function ends. 
         /// </summary>
         public int32 LastLineDefined;
-        /// <summary>
-        /// number of upvalues
-        /// </summary>
-        public uint8 NumberUpValues;
-        /// <summary>
-        /// number of parameters
-        /// </summary>
-        public uint8 NumberParameters;
-        /// <summary>
-        ///  true if the function is a vararg function (always true for C functions).
-        /// </summary>
-        public bool IsVarArg;        /* (u) */
-        /// <summary>
-        ///  true if this function invocation was called by a tail call. In this case, the caller of this level is not in the stack.
-        /// </summary>
-        public bool IsTailCall; /* (t) */
-
-        /// <summary>
-        /// The index on the stack of the first value being "transferred", that is, parameters in a call or return values in a return. (The other values are in consecutive indices.) Using this index, you can access and modify these values through lua_getlocal and lua_setlocal. This field is only meaningful during a call hook, denoting the first parameter, or a return hook, denoting the first value being returned. (For call hooks, this value is always 1.) 
-        /// </summary>
-        public uint16 IndexFirstValue;   /* (r) index of first value transferred */
-
-        /// <summary>
-        /// The number of values being transferred (see previous item). (For calls of Lua functions, this value is always equal to nparams.) 
-        /// </summary>
-        public uint16 NumberTransferredValues;   /* (r) number of transferred values */
         
         char8[60] shortSource;
 

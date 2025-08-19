@@ -11,7 +11,7 @@ namespace KeraLua
         /// <summary>
         /// pseudo-index used by registry table
         /// </summary>
-        Index = -1000000 - 1000
+        Index = -10000
     }
 
 	extension LuaRegistry

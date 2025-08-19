@@ -34,25 +34,11 @@ namespace KeraLua
         /// <summary>
         /// The options LUA_GCSETPAUSE and LUA_GCSETSTEPMUL of the function lua_gc are deprecated. You should use the new option LUA_GCINC to set them. 
         /// </summary>
-        //[Obsolete("Deprecatad since Lua 5.4, Use Incremental instead", false)]
         SetPause = 6,
         /// <summary>
         /// The options LUA_GCSETPAUSE and LUA_GCSETSTEPMUL of the function lua_gc are deprecated. You should use the new option LUA_GCINC to set them. 
         /// </summary>
-        //[Obsolete("Deprecatad since Lua 5.4, Use Incremental instead", false)]
-        SetStepMultiplier = 7,
-        /// <summary>
-        ///  returns a boolean that tells whether the collector is running
-        /// </summary>
-        IsRunning = 9,
-        /// <summary>
-        ///  Changes the collector to generational mode with the given parameters (see §2.5.2). Returns the previous mode (LUA_GCGEN or LUA_GCINC). 
-        /// </summary>
-        Generational = 10,
-        /// <summary>
-        /// Changes the collector to incremental mode with the given parameters (see §2.5.1). Returns the previous mode (LUA_GCGEN or LUA_GCINC). 
-        /// </summary>
-        Incremental = 11,
+        SetStepMultiplier = 7
     }
 
 	extension LuaGC

@@ -32,39 +32,7 @@ namespace KeraLua
         /// <summary>
         ///  performs float division (/)
         /// </summary>
-        Div = 5,
-        /// <summary>
-        ///  performs floor division (//)
-        /// </summary>
-        Idiv = 6,
-        /// <summary>
-        /// performs bitwise AND
-        /// </summary>
-        Band = 7,
-        /// <summary>
-        /// performs bitwise OR (|)
-        /// </summary>
-        Bor  = 8,
-        /// <summary>
-        /// performs bitwise exclusive OR (~)
-        /// </summary>
-        Bxor = 9,
-        /// <summary>
-        /// performs left shift 
-        /// </summary>
-        Shl  = 10,
-        /// <summary>
-        ///  performs right shift
-        /// </summary>
-        Shr  = 11,
-        /// <summary>
-        ///  performs mathematical negation (unary -)
-        /// </summary>
-        Unm  = 12,
-        /// <summary>
-        /// performs bitwise NOT (~)
-        /// </summary>
-        Bnot = 13,
+        Div = 5
     }
 
 	extension LuaOperation
