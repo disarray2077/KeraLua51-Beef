@@ -2,42 +2,24 @@ using System;
 
 namespace KeraLua
 {
-    /// <summary>
     /// Garbage Collector operations
-    /// </summary>
     public enum LuaGC : int32
     {
-        /// <summary>
-        ///  Stops the garbage collector. 
-        /// </summary>
+        /// Stops the garbage collector.
         Stop = 0,
-        /// <summary>
-        /// Restarts the garbage collector. 
-        /// </summary>
+        /// Restarts the garbage collector.
         Restart = 1,
-        /// <summary>
-        /// Performs a full garbage-collection cycle. 
-        /// </summary>
+        /// Performs a full garbage-collection cycle.
         Collect = 2,
-        /// <summary>
-        ///  Returns the current amount of memory (in Kbytes) in use by Lua. 
-        /// </summary>
+        /// Returns the current amount of memory (in Kbytes) in use by Lua.
         Count = 3,
-        /// <summary>
-        ///  Returns the remainder of dividing the current amount of bytes of memory in use by Lua by 1024
-        /// </summary>
+        /// Returns the remainder of dividing the current amount of bytes of memory in use by Lua by 1024
         Countb = 4,
-        /// <summary>
-        ///  Performs an incremental step of garbage collection. 
-        /// </summary>
+        /// Performs an incremental step of garbage collection.
         Step = 5,
-        /// <summary>
-        /// The options LUA_GCSETPAUSE and LUA_GCSETSTEPMUL of the function lua_gc are deprecated. You should use the new option LUA_GCINC to set them. 
-        /// </summary>
+        /// The options LUA_GCSETPAUSE and LUA_GCSETSTEPMUL of the function lua_gc are deprecated. You should use the new option LUA_GCINC to set them.
         SetPause = 6,
-        /// <summary>
-        /// The options LUA_GCSETPAUSE and LUA_GCSETSTEPMUL of the function lua_gc are deprecated. You should use the new option LUA_GCINC to set them. 
-        /// </summary>
+        /// The options LUA_GCSETPAUSE and LUA_GCSETSTEPMUL of the function lua_gc are deprecated. You should use the new option LUA_GCINC to set them.
         SetStepMultiplier = 7
     }
 
